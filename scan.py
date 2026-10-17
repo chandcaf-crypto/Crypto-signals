@@ -14,3 +14,8 @@ hits = [f"LONG {s[:-4]}: close {v['px']:.4g}, stop {v['stop']:.4g} ({v['risk']:.
 body = ("BTC above 100-day EMA. " if gate else "BTC below 100-day EMA: longs paused. ") + str(len(S)) + " coins scanned.\n" + ("\n".join(hits) if (hits and gate) else "No setups today.")
 requests.post(f"https://ntfy.sh/{TOPIC}", data=body.encode("utf-8"), headers={"Title": "Daily trend scan (PAPER)"})
 print(body)
+import json
+try: POS = json.load(open("positions.json"))
+except Exception: POS = []
+def chk(p): d = D[p["coin"]+"/USD"]; d = d[d.t < today].reset_index(drop=True); c = float(d.c.iloc[-1]); xl = float(d.l.rolling(10).min().shift(1).iloc[-1]); why = "STOP hit" if float(d.l.iloc[-1]) <= p["stop"] else ("closed below 10-day low" if c < xl else None); pl = (c/p["entry"]-1)*100; return (f"EXIT {p['coin']}: {why}. Close {c:.4g}, entry {p['entry']}, P&L {pl:+.1f}%" if why else f"HOLD {p['coin']}: close {c:.4g}, stop {p['stop']}, exit level {xl:.4g}, P&L {pl:+.1f}%")
+if POS: requests.post(f"https://ntfy.sh/{TOPIC}", data="\n".join(chk(p) for p in POS).encode("utf-8"), headers={"Title": "Open paper trades"})
